@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from tkinter import filedialog, simpledialog
+from tkinter import filedialog
 import pandas as pd
 import numpy as np
 import os
@@ -32,7 +32,8 @@ LANG_DICT = {
         "choose_folder": "Elegir carpeta de salida",
         "process": "Procesar archivos",
         "files_selected": "Archivos seleccionados:",
-        "files_processed": "Archivos procesados:"
+        "files_processed": "Archivos procesados:",
+        "output_folder_label": "Carpeta de salida: "
     },
     "EN": {
         "title": "HOP Excel Processor",
@@ -40,7 +41,8 @@ LANG_DICT = {
         "choose_folder": "Choose output folder",
         "process": "Process files",
         "files_selected": "Selected files:",
-        "files_processed": "Processed files:"
+        "files_processed": "Processed files:",
+        "output_folder_label": "Output folder: "
     }
 }
 
@@ -151,13 +153,14 @@ class ExcelProcessorApp(ctk.CTk):
         )
         self.folder_button.pack(pady=10)
 
-        self.output_label = ctk.CTkLabel(
+        # Label que muestra la carpeta de salida completa
+        self.output_folder_label = ctk.CTkLabel(
             self.center_frame,
-            text=f"Carpeta de salida: {self.output_folder}",
+            text=LANG_DICT[self.current_lang]["output_folder_label"] + self.output_folder,
             anchor="w",
             justify="left"
         )
-        self.output_label.pack(pady=(2,10), padx=20, fill="x")
+        self.output_folder_label.pack(fill="x", padx=20)
 
         # -----------------------------
         # Botón procesar archivos
@@ -202,6 +205,7 @@ class ExcelProcessorApp(ctk.CTk):
         self.select_button.configure(text=LANG_DICT[choice]["select_button"])
         self.folder_button.configure(text=LANG_DICT[choice]["choose_folder"])
         self.process_button.configure(text=LANG_DICT[choice]["process"])
+        self.output_folder_label.configure(text=LANG_DICT[choice]["output_folder_label"] + self.output_folder)
 
     # -----------------------------
     # Seleccionar archivos
@@ -242,10 +246,11 @@ class ExcelProcessorApp(ctk.CTk):
     # Seleccionar carpeta de salida
     # -----------------------------
     def select_output_folder(self):
-        folder = filedialog.askdirectory(initialdir=self.output_folder if self.output_folder else "/")
+        initial_dir = os.path.dirname(self.selected_files[-1]) if self.selected_files else self.output_folder
+        folder = filedialog.askdirectory(initialdir=initial_dir)
         if folder:
             self.output_folder = folder
-            self.output_label.configure(text=f"Carpeta de salida: {self.output_folder}")
+            self.output_folder_label.configure(text=LANG_DICT[self.current_lang]["output_folder_label"] + self.output_folder)
 
     # -----------------------------
     # Procesar archivos
@@ -256,12 +261,6 @@ class ExcelProcessorApp(ctk.CTk):
 
         output_folder = self.output_folder
         processed_names = []
-
-        # Preguntar nombre de archivo de salida predeterminado
-        default_name = "Excel_Salida"
-        output_name = simpledialog.askstring("Nombre archivo", "Ingrese nombre del archivo de salida:", initialvalue=default_name)
-        if not output_name:
-            output_name = default_name
 
         for file_path in self.selected_files:
             try:
@@ -295,20 +294,18 @@ class ExcelProcessorApp(ctk.CTk):
                             df.loc[i, "Pes individual"] = 0
                             df.loc[i+1, "Pes individual"] = 0
                     df["Pes MRAG"] = df.apply(lambda row: row["Pes M"] if row["Pes individual"] == 1 else "NA", axis=1)
-                    df.to_excel(os.path.join(output_folder, f"{output_name}_HOP{hop_number}.xlsx"), index=False)
-                    processed_names.append(f"Formato sin pesos: {filename}")
+                    output_file = os.path.join(output_folder, f"Filtered_HOP{hop_number}.xlsx")
+                    df.to_excel(output_file, index=False)
+                    processed_names.append(f"Filtered: {filename}")
 
                 # ----------------- Calcular PesIndiv -----------------
                 if self.calc_pesindiv_var.get() == 1:
-                    df['Pes M'] = pd.to_numeric(df['Pes M'], errors='coerce')
                     df['PesIndiv'] = None
-
                     for i in range(len(df)):
                         pesM = df.loc[i, "Pes M"]
                         if pd.isna(pesM):
                             df.loc[i, "PesIndiv"] = "Null"
                             continue
-                        # Caso de peces pesados juntos (primer pez con Pes M NaN)
                         if i > 0 and pd.isna(df.loc[i-1, "Pes M"]):
                             pes1 = df.loc[i-1, "Pes"]
                             pes2 = df.loc[i, "Pes"]
@@ -322,8 +319,8 @@ class ExcelProcessorApp(ctk.CTk):
                                 df.loc[i, "PesIndiv"] = p2 if p2 >= 0 else "Null"
                         else:
                             df.loc[i, "PesIndiv"] = int(round(pesM)) if pesM >= 0 else "Null"
-
-                    df.to_excel(os.path.join(output_folder, f"{output_name}_PesIndiv_HOP{hop_number}.xlsx"), index=False)
+                    output_file = os.path.join(output_folder, f"Individual_HOP{hop_number}.xlsx")
+                    df.to_excel(output_file, index=False)
                     processed_names.append(f"PesIndiv calculado: {filename}")
 
             except Exception as e:
