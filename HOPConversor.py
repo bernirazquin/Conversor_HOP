@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from tkinter import filedialog
+from tkinter import filedialog, simpledialog
 import pandas as pd
 import numpy as np
 import os
@@ -50,7 +50,7 @@ LANG_DICT = {
 class ExcelProcessorApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.geometry("900x650")
+        self.geometry("900x700")
         self.title(LANG_DICT["ES"]["title"])
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
@@ -151,6 +151,14 @@ class ExcelProcessorApp(ctk.CTk):
         )
         self.folder_button.pack(pady=10)
 
+        self.output_label = ctk.CTkLabel(
+            self.center_frame,
+            text=f"Carpeta de salida: {self.output_folder}",
+            anchor="w",
+            justify="left"
+        )
+        self.output_label.pack(pady=(2,10), padx=20, fill="x")
+
         # -----------------------------
         # Botón procesar archivos
         # -----------------------------
@@ -237,6 +245,7 @@ class ExcelProcessorApp(ctk.CTk):
         folder = filedialog.askdirectory(initialdir=self.output_folder if self.output_folder else "/")
         if folder:
             self.output_folder = folder
+            self.output_label.configure(text=f"Carpeta de salida: {self.output_folder}")
 
     # -----------------------------
     # Procesar archivos
@@ -248,84 +257,84 @@ class ExcelProcessorApp(ctk.CTk):
         output_folder = self.output_folder
         processed_names = []
 
+        # Preguntar nombre de archivo de salida predeterminado
+        default_name = "Excel_Salida"
+        output_name = simpledialog.askstring("Nombre archivo", "Ingrese nombre del archivo de salida:", initialvalue=default_name)
+        if not output_name:
+            output_name = default_name
+
         for file_path in self.selected_files:
             try:
-                filename = os.path.basename(file_path)
-                hop_number_match = re.search(r"HOP\s*([0-9]+)", filename, re.IGNORECASE)
-                hop_number = hop_number_match.group(1) if hop_number_match else "UNKNOWN"
-
-                # ----------------- Leer Excel solo una vez -----------------
                 raw_df = pd.read_excel(file_path, header=None)
                 header_row = raw_df[raw_df.eq("Pes M").any(axis=1)].index[0]
                 df = pd.read_excel(file_path, header=header_row)
                 df = df.dropna(how="all").reset_index(drop=True)
 
-                # ----------------- Normalizar Tipus y columnas numéricas -----------------
+                filename = os.path.basename(file_path)
+                hop_number = re.search(r"HOP\s*([0-9]+)", filename, re.IGNORECASE)
+                hop_number = hop_number.group(1) if hop_number else "UNKNOWN"
+
+                # Convertir la columna "Tipus" en formato "MRAG"
                 if "Tipus" in df.columns:
                     df["Tipus"] = df["Tipus"].replace({"HG": "DWT", "EV": "GGWT"})
+
+                # Convertir columnas numéricas con , o .
                 for col in ["Pes M", "Pes", "Llarg", "Ample"]:
                     if col in df.columns:
-                        df[col] = pd.to_numeric(df[col].astype(str).str.replace(",", "."), errors="coerce")
+                        df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
+                        df[col] = pd.to_numeric(df[col], errors="coerce")
 
                 # ----------------- Formato sin pesos estimados -----------------
                 if self.format_no_weights_var.get() == 1:
-                    df_no_weights = df.copy()
-                    df_no_weights['Pes individual'] = 1
-                    for i in range(len(df_no_weights) - 1):
-                        pes_current = df_no_weights.loc[i, "Pes M"]
-                        pes_next = df_no_weights.loc[i + 1, "Pes M"]
+                    df['Pes M'] = pd.to_numeric(df['Pes M'], errors='coerce')
+                    df['Pes individual'] = 1
+                    for i in range(len(df) - 1):
+                        pes_current = df.loc[i, "Pes M"]
+                        pes_next = df.loc[i+1, "Pes M"]
                         if (pd.isna(pes_current) or pes_current == 0) and pd.notna(pes_next) and pes_next > 0:
-                            df_no_weights.loc[i, "Pes individual"] = 0
-                            df_no_weights.loc[i + 1, "Pes individual"] = 0
-                    df_no_weights["Pes MRAG"] = df_no_weights.apply(
-                        lambda row: row["Pes M"] if row["Pes individual"] == 1 else "NA", axis=1
-                    )
-
-                    out_file = os.path.join(output_folder, f"Filtered_HOP_{hop_number}.xlsx")
-                    df_no_weights.to_excel(out_file, index=False)
-                    processed_names.append(f"Formato sin pesos estimados: {filename}")
+                            df.loc[i, "Pes individual"] = 0
+                            df.loc[i+1, "Pes individual"] = 0
+                    df["Pes MRAG"] = df.apply(lambda row: row["Pes M"] if row["Pes individual"] == 1 else "NA", axis=1)
+                    df.to_excel(os.path.join(output_folder, f"{output_name}_HOP{hop_number}.xlsx"), index=False)
+                    processed_names.append(f"Formato sin pesos: {filename}")
 
                 # ----------------- Calcular PesIndiv -----------------
                 if self.calc_pesindiv_var.get() == 1:
-                    df_pesindiv = df.copy()
-                    col_index = df_pesindiv.columns.get_loc("Pes M")
-                    df_pesindiv.insert(col_index + 1, "PesIndiv", None)
+                    df['Pes M'] = pd.to_numeric(df['Pes M'], errors='coerce')
+                    df['PesIndiv'] = None
 
-                    for i in range(len(df_pesindiv)):
-                        pesM = df_pesindiv.loc[i, "Pes M"]
-
+                    for i in range(len(df)):
+                        pesM = df.loc[i, "Pes M"]
                         if pd.isna(pesM):
-                            df_pesindiv.loc[i, "PesIndiv"] = "Null"
+                            df.loc[i, "PesIndiv"] = "Null"
                             continue
-
-                        if i > 0 and pd.isna(df_pesindiv.loc[i - 1, "Pes M"]):
-                            pes1 = df_pesindiv.loc[i - 1, "Pes"]
-                            pes2 = df_pesindiv.loc[i, "Pes"]
+                        # Caso de peces pesados juntos (primer pez con Pes M NaN)
+                        if i > 0 and pd.isna(df.loc[i-1, "Pes M"]):
+                            pes1 = df.loc[i-1, "Pes"]
+                            pes2 = df.loc[i, "Pes"]
                             if pd.isna(pes1) or pd.isna(pes2) or pes1 < 0 or pes2 < 0:
-                                df_pesindiv.loc[i - 1, "PesIndiv"] = "Null"
-                                df_pesindiv.loc[i, "PesIndiv"] = "Null"
+                                df.loc[i-1, "PesIndiv"] = "Null"
+                                df.loc[i, "PesIndiv"] = "Null"
                             else:
                                 p1 = round(pes1 / (pes1 + pes2) * pesM)
                                 p2 = int(pesM) - p1
-                                df_pesindiv.loc[i - 1, "PesIndiv"] = p1 if p1 >= 0 else "Null"
-                                df_pesindiv.loc[i, "PesIndiv"] = p2 if p2 >= 0 else "Null"
+                                df.loc[i-1, "PesIndiv"] = p1 if p1 >= 0 else "Null"
+                                df.loc[i, "PesIndiv"] = p2 if p2 >= 0 else "Null"
                         else:
-                            df_pesindiv.loc[i, "PesIndiv"] = int(round(pesM)) if pesM >= 0 else "Null"
+                            df.loc[i, "PesIndiv"] = int(round(pesM)) if pesM >= 0 else "Null"
 
-                    out_file = os.path.join(output_folder, f"Excel_Sacrifici_indiv_HOP{hop_number}.xlsx")
-                    df_pesindiv.to_excel(out_file, index=False)
+                    df.to_excel(os.path.join(output_folder, f"{output_name}_PesIndiv_HOP{hop_number}.xlsx"), index=False)
                     processed_names.append(f"PesIndiv calculado: {filename}")
 
             except Exception as e:
                 processed_names.append(f"Error procesando {filename}: {e}")
 
-        # ----------------- Actualizar frame de archivos procesados -----------------
         for widget in self.processed_files_frame.winfo_children():
             widget.destroy()
+
         for i, text in enumerate(processed_names):
             lbl = ctk.CTkLabel(self.processed_files_frame, text=text, anchor="w", justify="left")
             lbl.grid(row=i, column=0, sticky="w", padx=5, pady=2)
-
 
 # -----------------------------
 # Ejecutar app
