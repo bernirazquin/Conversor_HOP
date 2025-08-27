@@ -64,7 +64,7 @@ class ExcelProcessorApp(ctk.CTk):
         super().__init__()
 
         # ----------------------------- Icono de ventana -----------------------------
-        self.iconbitmap("logo.ico")  # <-- Ícono para ventana y barra de tareas
+        self.iconbitmap(resource_path("logo.ico"))  # <-- Ícono para ventana y barra de tareas
 
         self.geometry("900x650")
         self.title(LANG_DICT["ES"]["title"])
