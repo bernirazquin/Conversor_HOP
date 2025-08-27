@@ -3,6 +3,7 @@ from tkinter import filedialog
 import pandas as pd
 import numpy as np
 import os
+import sys
 import pythoncom
 from win32com.shell import shell
 import re
@@ -22,6 +23,17 @@ def resolve_lnk(lnk_path):
     path, _ = shell_link.GetPath(shell.SLGP_UNCPRIORITY)
     return path
 
+# ------------------------------
+
+def resource_path(relative_path):
+    try:
+        # Cuando corre como .exe
+        base_path = sys._MEIPASS
+    except AttributeError:
+        # Cuando corre como .py
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 # -----------------------------
 # Diccionario de traducción
 # -----------------------------
