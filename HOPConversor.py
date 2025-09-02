@@ -8,35 +8,33 @@ import pythoncom
 from win32com.shell import shell
 import re
 
-# -----------------------------
+# ----------------------------- #
 # Función para resolver accesos directos (.lnk)
-# -----------------------------
+# ----------------------------- #
 def resolve_lnk(lnk_path):
     if not lnk_path.lower().endswith('.lnk'):
         return lnk_path
     shell_link = pythoncom.CoCreateInstance(
         shell.CLSID_ShellLink, None,
-        pythoncom.CLSCTX_INPROC_SERVER, shell.IID_IShellLink
+        pythoncom.CLSCTX_INPROC_SERVER,
+        shell.IID_IShellLink
     )
     persist_file = shell_link.QueryInterface(pythoncom.IID_IPersistFile)
     persist_file.Load(lnk_path)
     path, _ = shell_link.GetPath(shell.SLGP_UNCPRIORITY)
     return path
 
-# ------------------------------
-
+# ------------------------------ #
 def resource_path(relative_path):
     try:
-        # Cuando corre como .exe
-        base_path = sys._MEIPASS
+        base_path = sys._MEIPASS  # Cuando corre como .exe
     except AttributeError:
-        # Cuando corre como .py
-        base_path = os.path.abspath(".")
-
+        base_path = os.path.abspath(".")  # Cuando corre como .py
     return os.path.join(base_path, relative_path)
-# -----------------------------
+
+# ----------------------------- #
 # Diccionario de traducción
-# -----------------------------
+# ----------------------------- #
 LANG_DICT = {
     "ES": {
         "title": "Procesador Excel HOP",
@@ -56,16 +54,15 @@ LANG_DICT = {
     }
 }
 
-# -----------------------------
+# ----------------------------- #
 # Clase principal de la app
-# -----------------------------
+# ----------------------------- #
 class ExcelProcessorApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # ----------------------------- Icono de ventana -----------------------------
-        self.iconbitmap(resource_path("logo.ico"))  # <-- Ícono para ventana y barra de tareas
-
+        # ----------------------------- Icono y ventana -----------------------------
+        self.iconbitmap(resource_path("logo.ico"))
         self.geometry("900x650")
         self.title(LANG_DICT["ES"]["title"])
         ctk.set_appearance_mode("light")
@@ -81,22 +78,19 @@ class ExcelProcessorApp(ctk.CTk):
 
         # ----------------------------- Menú de idioma -----------------------------
         self.lang_option = ctk.CTkOptionMenu(
-            self, values=["ES","EN"], command=self.change_language, width=120
+            self, values=["ES", "EN"], command=self.change_language, width=120
         )
         self.lang_option.place(relx=0.95, y=10, anchor="ne")
         self.lang_option.tkraise()
 
         # ----------------------------- Botón seleccionar archivos -----------------------------
         self.select_button = ctk.CTkButton(
-            self.center_frame,
-            text=LANG_DICT[self.current_lang]["select_button"],
-            command=self.select_files,
-            corner_radius=15,
-            width=220
+            self.center_frame, text=LANG_DICT[self.current_lang]["select_button"],
+            command=self.select_files, corner_radius=15, width=220
         )
-        self.select_button.pack(pady=(20,10))
+        self.select_button.pack(pady=(20, 10))
 
-        # ----------------------------- Frame contenedor para archivos seleccionados con scroll -----------------------------
+        # ----------------------------- Frame de archivos seleccionados -----------------------------
         self.selected_files_container = ctk.CTkFrame(self.center_frame, height=120, corner_radius=15)
         self.selected_files_container.pack(fill="x", padx=20, pady=5)
         self.selected_files_container.pack_propagate(False)
@@ -105,77 +99,59 @@ class ExcelProcessorApp(ctk.CTk):
         self.selected_files_frame.pack(fill="both", expand=True)
         self.selected_files_frame.grid_columnconfigure(0, weight=1)
 
-        # ----------------------------- Checkboxes para opciones -----------------------------
+        # ----------------------------- Checkboxes -----------------------------
         self.format_no_weights_var = ctk.IntVar(value=1)
         self.calc_pesindiv_var = ctk.IntVar()
 
         self.format_no_weights_cb = ctk.CTkCheckBox(
-            self.center_frame,
-            text="Formato sin pesos estimados",
+            self.center_frame, text="Formato sin pesos estimados",
             variable=self.format_no_weights_var
         )
-        self.format_no_weights_cb.pack(pady=(10,0))
+        self.format_no_weights_cb.pack(pady=(10, 0))
+
         self.format_no_weights_desc = ctk.CTkLabel(
             self.center_frame,
             text='Pesos de dos individuos aparecen como NA\ncolumna "Tipus" cambiada al diccionario de MRAG.',
-            fg_color="#d0e6ff",
-            text_color="#003366",
-            corner_radius=10,
-            anchor="center",
-            justify="center"
+            fg_color="#d0e6ff", text_color="#003366", corner_radius=10,
+            anchor="center", justify="center", wraplength=400
         )
-        self.format_no_weights_desc.pack(padx=20, pady=(2,10))
-        self.format_no_weights_desc.configure(wraplength=400)
+        self.format_no_weights_desc.pack(padx=20, pady=(2, 10))
 
         self.calc_pesindiv_cb = ctk.CTkCheckBox(
-            self.center_frame,
-            text="Calcular PesIndiv y normalizar Tipus",
+            self.center_frame, text="Calcular PesIndiv y normalizar Tipus",
             variable=self.calc_pesindiv_var
         )
-        self.calc_pesindiv_cb.pack(pady=(10,0))
+        self.calc_pesindiv_cb.pack(pady=(10, 0))
+
         self.calc_pesindiv_desc = ctk.CTkLabel(
             self.center_frame,
             text="Calcula Peso Individual de cada pez en base a la relación de largo y ancho y la suma total del Pes M.\nNo influye en el peso total del HOP.",
-            fg_color="#d0e6ff",
-            text_color="#003366",
-            corner_radius=10,
-            anchor="center",
-            justify="center"
+            fg_color="#d0e6ff", text_color="#003366", corner_radius=10,
+            anchor="center", justify="center", wraplength=400
         )
-        self.calc_pesindiv_desc.pack(padx=20, pady=(2,10))
-        self.calc_pesindiv_desc.configure(wraplength=400)
+        self.calc_pesindiv_desc.pack(padx=20, pady=(2, 10))
 
-        # ----------------------------- Botón elegir carpeta de salida -----------------------------
+        # ----------------------------- Botón carpeta salida -----------------------------
         self.folder_button = ctk.CTkButton(
-            self.center_frame,
-            text=LANG_DICT[self.current_lang]["choose_folder"],
-            command=self.select_output_folder,
-            corner_radius=15,
-            width=220
+            self.center_frame, text=LANG_DICT[self.current_lang]["choose_folder"],
+            command=self.select_output_folder, corner_radius=15, width=220
         )
         self.folder_button.pack(pady=10)
 
-        # ----------------------------- Label para mostrar carpeta de salida -----------------------------
         self.output_folder_label = ctk.CTkLabel(
-            self.center_frame,
-            text=f"Carpeta de salida: {self.output_folder}",
-            anchor="w",
-            justify="left",
-            wraplength=850  # Ajustable para que no se corte
+            self.center_frame, text=f"Carpeta de salida: {self.output_folder}",
+            anchor="w", justify="left", wraplength=850
         )
-        self.output_folder_label.pack(padx=20, pady=(2,10), fill="x")
+        self.output_folder_label.pack(padx=20, pady=(2, 10), fill="x")
 
         # ----------------------------- Botón procesar archivos -----------------------------
         self.process_button = ctk.CTkButton(
-            self.center_frame,
-            text=LANG_DICT[self.current_lang]["process"],
-            command=self.procesar_archivos,
-            corner_radius=15,
-            width=220
+            self.center_frame, text=LANG_DICT[self.current_lang]["process"],
+            command=self.procesar_archivos, corner_radius=15, width=220
         )
         self.process_button.pack(pady=10)
 
-        # ----------------------------- Frame contenedor para archivos procesados con scroll -----------------------------
+        # ----------------------------- Frame de archivos procesados -----------------------------
         self.processed_files_container = ctk.CTkFrame(self.center_frame, height=180, corner_radius=15)
         self.processed_files_container.pack(fill="x", padx=20, pady=10)
         self.processed_files_container.pack_propagate(False)
@@ -184,12 +160,11 @@ class ExcelProcessorApp(ctk.CTk):
         self.processed_files_frame.pack(fill="both", expand=True)
         self.processed_files_frame.grid_columnconfigure(0, weight=1)
 
-        # ----------------------------- Firma de la app -----------------------------
+        # ----------------------------- Firma -----------------------------
         self.signature_label = ctk.CTkLabel(
             self,
-            text="Creado por Bernardo R. para los observadores de MRAG en la granja de L´Ametlla de Mar",
-            text_color="#666666",
-            font=("Arial", 9)
+            text="Creado por Bernardo R. para los observadores de MRAG en la granja de L'Ametlla de Mar, Setiembre 2025",
+            text_color="#666666", font=("Arial", 9)
         )
         self.signature_label.pack(side="bottom", pady=10)
 
@@ -203,28 +178,28 @@ class ExcelProcessorApp(ctk.CTk):
 
     # ----------------------------- Seleccionar archivos -----------------------------
     def select_files(self):
-        paths = filedialog.askopenfilenames(filetypes=[("Excel files","*.xlsx *.xls"),("All files","*.*")])
+        paths = filedialog.askopenfilenames(
+            filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
+        )
         for path in paths:
             real_path = resolve_lnk(path)
             if real_path not in self.selected_files:
                 self.selected_files.append(real_path)
         self.update_selected_files_label()
 
-    # ----------------------------- Actualizar lista de archivos seleccionados -----------------------------
     def update_selected_files_label(self):
         for widget in self.selected_files_frame.winfo_children():
             widget.destroy()
-
         for i, f in enumerate(self.selected_files):
             file_label = ctk.CTkLabel(self.selected_files_frame, text=os.path.basename(f), anchor="w")
-            file_label.grid(row=i, column=0, sticky="w", padx=(5,0), pady=2)
+            file_label.grid(row=i, column=0, sticky="w", padx=(5, 0), pady=2)
+            remove_btn = ctk.CTkButton(
+                self.selected_files_frame, text="X", width=25, height=25,
+                fg_color="#ff4d4d", hover_color="#ff6666",
+                command=lambda f=f: self.remove_file(f)
+            )
+            remove_btn.grid(row=i, column=1, padx=(5, 5))
 
-            remove_btn = ctk.CTkButton(self.selected_files_frame, text="X", width=25, height=25,
-                                       fg_color="#ff4d4d", hover_color="#ff6666",
-                                       command=lambda f=f: self.remove_file(f))
-            remove_btn.grid(row=i, column=1, padx=(5,5))
-
-    # ----------------------------- Eliminar archivo -----------------------------
     def remove_file(self, file_path):
         if file_path in self.selected_files:
             self.selected_files.remove(file_path)
@@ -232,7 +207,6 @@ class ExcelProcessorApp(ctk.CTk):
 
     # ----------------------------- Seleccionar carpeta de salida -----------------------------
     def select_output_folder(self):
-        # Abrir en la carpeta del primer archivo seleccionado, si existe
         initial_dir = os.path.dirname(self.selected_files[0]) if self.selected_files else self.output_folder
         folder = filedialog.askdirectory(initialdir=initial_dir)
         if folder:
@@ -258,9 +232,21 @@ class ExcelProcessorApp(ctk.CTk):
                 hop_number = re.search(r"HOP\s*([0-9]+)", filename, re.IGNORECASE)
                 hop_number = hop_number.group(1) if hop_number else "UNKNOWN"
 
-                # Convertir columna Tipus a formato MRAG
+                # Normalizar Tipus y agregar Cod report
                 if "Tipus" in df.columns:
-                    df["Tipus"] = df["Tipus"].replace({"HG": "DWT", "EV": "GGWT"})
+                    df["Tipus"] = df["Tipus"].replace({
+                        "HG": "Dressed weight",
+                        "EV": "Gutted and gilled"
+                    })
+                    df["Cod report"] = df["Tipus"].replace({
+                        "Dressed weight": "DWT",
+                        "Gutted and gilled": "GGWT"
+                    })
+
+                    cols = list(df.columns)
+                    tipus_index = cols.index("Tipus")
+                    cols.insert(tipus_index + 1, cols.pop(cols.index("Cod report")))
+                    df = df[cols]
 
                 # Convertir columnas numéricas
                 for col in ["Pes M", "Pes", "Llarg", "Ample"]:
@@ -269,7 +255,7 @@ class ExcelProcessorApp(ctk.CTk):
                         df[col] = pd.to_numeric(df[col], errors="coerce")
 
                 # ----------------- Formato sin pesos estimados -----------------
-                if self.format_no_weights_var.get() == 1:
+                if self.format_no_weights_var.get() == 1 and "Pes M" in df.columns:
                     df['Pes individual'] = 1
                     for i in range(len(df) - 1):
                         pes_current = df.loc[i, "Pes M"]
@@ -277,13 +263,15 @@ class ExcelProcessorApp(ctk.CTk):
                         if (pd.isna(pes_current) or pes_current == 0) and pd.notna(pes_next) and pes_next > 0:
                             df.loc[i, "Pes individual"] = 0
                             df.loc[i+1, "Pes individual"] = 0
-                    df["Pes MRAG"] = df.apply(lambda row: row["Pes M"] if row["Pes individual"] == 1 else "NA", axis=1)
+                    df["Pes MRAG"] = df.apply(
+                        lambda row: row["Pes M"] if row["Pes individual"] == 1 else np.nan, axis=1
+                    )
                     output_file = os.path.join(output_folder, f"Filtered_HOP{hop_number}.xlsx")
-                    df.to_excel(output_file, index=False)
+                    df.to_excel(output_file, index=False, na_rep="")
                     processed_names.append(f"Formato sin pesos estimados: {filename}")
 
                 # ----------------- Calcular PesIndiv -----------------
-                if self.calc_pesindiv_var.get() == 1:
+                if self.calc_pesindiv_var.get() == 1 and "Pes M" in df.columns:
                     df["Pes individual"] = 1
                     for i in range(len(df) - 1):
                         pes_current = df.loc[i, "Pes M"] if pd.notna(df.loc[i, "Pes M"]) else 0
@@ -291,7 +279,10 @@ class ExcelProcessorApp(ctk.CTk):
                         if pes_current == 0 and pes_next > 0:
                             df.loc[i, "Pes individual"] = 0
                             df.loc[i+1, "Pes individual"] = 0
-                    df["Pes MRAG"] = df.apply(lambda row: row["Pes M"] if row["Pes individual"] == 1 and row["Pes M"] != 0 else "NA", axis=1)
+                    df["Pes MRAG"] = df.apply(
+                        lambda row: row["Pes M"] if row["Pes individual"] == 1 and row["Pes M"] != 0 else np.nan,
+                        axis=1
+                    )
                     output_file = os.path.join(output_folder, f"Individual_HOP{hop_number}.xlsx")
                     df.to_excel(output_file, index=False)
                     processed_names.append(f"PesIndiv calculado: {filename}")
@@ -299,16 +290,15 @@ class ExcelProcessorApp(ctk.CTk):
             except Exception as e:
                 processed_names.append(f"Error procesando {filename}: {e}")
 
+        # Mostrar archivos procesados
         for widget in self.processed_files_frame.winfo_children():
             widget.destroy()
-
         for i, text in enumerate(processed_names):
             lbl = ctk.CTkLabel(self.processed_files_frame, text=text, anchor="w", justify="left")
             lbl.grid(row=i, column=0, sticky="w", padx=5, pady=2)
 
-# -----------------------------
-# Ejecutar app
-# -----------------------------
+
+# ----------------------------- Ejecutar app -----------------------------
 if __name__ == "__main__":
     app = ExcelProcessorApp()
     app.mainloop()
