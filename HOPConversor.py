@@ -7,6 +7,8 @@ import sys
 import pythoncom
 from win32com.shell import shell
 import re
+import tempfile
+import shutil
 
 # ----------------------------- #
 # Función para resolver accesos directos (.lnk)
@@ -62,7 +64,15 @@ class ExcelProcessorApp(ctk.CTk):
         super().__init__()
 
         # ----------------------------- Icono y ventana -----------------------------
-        self.iconbitmap(resource_path("logo.ico"))
+        ico_path = resource_path("logo.ico")
+
+        if getattr(sys, "frozen", False):  # estamos en .exe
+            temp_ico = os.path.join(tempfile.gettempdir(), "logo_temp.ico")
+            shutil.copyfile(ico_path, temp_ico)
+            self.iconbitmap(temp_ico)
+        else:
+            self.iconbitmap(ico_path)
+        
         self.geometry("900x650")
         self.title(LANG_DICT["ES"]["title"])
         ctk.set_appearance_mode("light")
