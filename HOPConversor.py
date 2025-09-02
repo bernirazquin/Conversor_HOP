@@ -64,8 +64,7 @@ class ExcelProcessorApp(ctk.CTk):
         super().__init__()
 
         # ----------------------------- Icono y ventana -----------------------------
-        ico_path = resource_path("logo.ico")
-
+        self.iconbitmap(resource_path("logo.ico"))  # <-- Ícono para ventana y barra de tareas
         if getattr(sys, "frozen", False):  # estamos en .exe
             temp_ico = os.path.join(tempfile.gettempdir(), "logo_temp.ico")
             shutil.copyfile(ico_path, temp_ico)
