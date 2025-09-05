@@ -1,42 +1,44 @@
-import customtkinter as ctk
-from tkinter import filedialog
-import pandas as pd
-import numpy as np
+# -----------------------------
+# Imports
+# -----------------------------
 import os
 import sys
+import re
 import pythoncom
 from win32com.shell import shell
-import re
-import tempfile
-import shutil
 
-# ----------------------------- #
-# Función para resolver accesos directos (.lnk)
-# ----------------------------- #
+import pandas as pd
+import numpy as np
+from PIL import Image, ImageTk
+import customtkinter as ctk
+from tkinter import filedialog
+
+# -----------------------------
+# Funciones utilitarias
+# -----------------------------
 def resolve_lnk(lnk_path):
+    """Resuelve el camino real de un acceso directo (.lnk) en Windows."""
     if not lnk_path.lower().endswith('.lnk'):
         return lnk_path
     shell_link = pythoncom.CoCreateInstance(
-        shell.CLSID_ShellLink, None,
-        pythoncom.CLSCTX_INPROC_SERVER,
-        shell.IID_IShellLink
+        shell.CLSID_ShellLink, None, pythoncom.CLSCTX_INPROC_SERVER, shell.IID_IShellLink
     )
     persist_file = shell_link.QueryInterface(pythoncom.IID_IPersistFile)
     persist_file.Load(lnk_path)
     path, _ = shell_link.GetPath(shell.SLGP_UNCPRIORITY)
     return path
 
-# ------------------------------ #
 def resource_path(relative_path):
+    """Devuelve la ruta absoluta del recurso, considerando PyInstaller."""
     try:
-        base_path = sys._MEIPASS  # Cuando corre como .exe
+        base_path = sys._MEIPASS
     except AttributeError:
-        base_path = os.path.abspath(".")  # Cuando corre como .py
+        base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
-# ----------------------------- #
+# -----------------------------
 # Diccionario de traducción
-# ----------------------------- #
+# -----------------------------
 LANG_DICT = {
     "ES": {
         "title": "Procesador Excel HOP",
@@ -44,7 +46,12 @@ LANG_DICT = {
         "choose_folder": "Elegir carpeta de salida",
         "process": "Procesar archivos",
         "files_selected": "Archivos seleccionados:",
-        "files_processed": "Archivos procesados:"
+        "files_processed": "Archivos procesados:",
+        "format_no_weights": "Formato sin pesos estimados",
+        "format_no_weights_desc": 'Pesos de dos individuos aparecen como NA\ncolumna "Tipus" cambiada al diccionario de MRAG.',
+        "calc_pesindiv": "Calcular PesIndiv y normalizar Tipus",
+        "calc_pesindiv_desc": "Calcula Peso Individual de cada pez en base a la relación de largo y ancho y la suma total del Pes M.\nNo influye en el peso total del HOP.",
+        "output_folder_label": "Carpeta de salida:"
     },
     "EN": {
         "title": "HOP Excel Processor",
@@ -52,140 +59,194 @@ LANG_DICT = {
         "choose_folder": "Choose output folder",
         "process": "Process files",
         "files_selected": "Selected files:",
-        "files_processed": "Processed files:"
+        "files_processed": "Processed files:",
+        "format_no_weights": "Format without estimated weights",
+        "format_no_weights_desc": 'Weights of two individuals appear as NA\n"Tipus" column changed according to MRAG dictionary.',
+        "calc_pesindiv": "Calculate PesIndiv and normalize Tipus",
+        "calc_pesindiv_desc": "Calculates individual fish weight based on length and width ratio and total Pes M.\nDoes not affect total HOP weight.",
+        "output_folder_label": "Output folder:"
+    },
+    "FR": {
+        "title": "Processeur Excel HOP",
+        "select_button": "Sélectionner les fichiers",
+        "choose_folder": "Choisir le dossier de sortie",
+        "process": "Traiter les fichiers",
+        "files_selected": "Fichiers sélectionnés :",
+        "files_processed": "Fichiers traités :",
+        "format_no_weights": "Format sans poids estimés",
+        "format_no_weights_desc": 'Les poids de deux individus apparaissent comme NA\ncolonne "Tipus" modifiée selon le dictionnaire MRAG.',
+        "calc_pesindiv": "Calculer PesIndiv et normaliser Tipus",
+        "calc_pesindiv_desc": "Calcule le poids individuel de chaque poisson en fonction du rapport longueur/largeur et du total Pes M.\nN\'affecte pas le poids total du HOP.",
+        "output_folder_label": "Dossier de sortie :"
+    },
+    "PT": {
+        "title": "Processador Excel HOP",
+        "select_button": "Selecionar arquivos",
+        "choose_folder": "Escolher pasta de saída",
+        "process": "Processar arquivos",
+        "files_selected": "Arquivos selecionados:",
+        "files_processed": "Arquivos processados:",
+        "format_no_weights": "Formato sem pesos estimados",
+        "format_no_weights_desc": 'Pesos de dois indivíduos aparecem como NA\ncoluna "Tipus" alterada de acordo com o dicionário MRAG.',
+        "calc_pesindiv": "Calcular PesIndiv e normalizar Tipus",
+        "calc_pesindiv_desc": "Calcula o peso individual de cada peixe com base na relação comprimento/largura e total Pes M.\nNão afeta o peso total do HOP.",
+        "output_folder_label": "Pasta de saída:"
+    },
+    "HR": {
+        "title": "HOP Excel Procesor",
+        "select_button": "Odaberite datoteke",
+        "choose_folder": "Odaberite izlaznu mapu",
+        "process": "Obradi datoteke",
+        "files_selected": "Odabrane datoteke:",
+        "files_processed": "Obrađene datoteke:",
+        "format_no_weights": "Format bez procijenjenih težina",
+        "format_no_weights_desc": 'Težine dva pojedinca prikazane su kao NA\nstupac "Tipus" promijenjen prema MRAG rječniku.',
+        "calc_pesindiv": "Izračunaj PesIndiv i normaliziraj Tipus",
+        "calc_pesindiv_desc": "Izračunava individualnu težinu svake ribe na temelju odnosa duljine i širine i ukupnog Pes M.\nNe utječe na ukupnu težinu HOP-a.",
+        "output_folder_label": "Izlazna mapa:"
     }
 }
 
-# ----------------------------- #
+# -----------------------------
 # Clase principal de la app
-# ----------------------------- #
+# -----------------------------
 class ExcelProcessorApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-
-        # ----------------------------- Icono y ventana -----------------------------
-        self.iconbitmap(resource_path("logo.ico"))  # <-- Ícono para ventana y barra de tareas
-        if getattr(sys, "frozen", False):  # estamos en .exe
-            temp_ico = os.path.join(tempfile.gettempdir(), "logo_temp.ico")
-            shutil.copyfile(ico_path, temp_ico)
-            self.iconbitmap(temp_ico)
-        else:
-            self.iconbitmap(ico_path)
-        
-        self.geometry("900x650")
-        self.title(LANG_DICT["ES"]["title"])
-        ctk.set_appearance_mode("light")
-        ctk.set_default_color_theme("blue")
-
         self.current_lang = "ES"
         self.selected_files = []
         self.output_folder = os.getcwd()
 
-        # ----------------------------- Contenedor central -----------------------------
+        self.setup_window()
+        self.create_widgets()
+
+    # -----------------------------
+    # Configuración de ventana
+    # -----------------------------
+    def setup_window(self):
+        self.geometry("900x650")
+        self.title(LANG_DICT[self.current_lang]["title"])
+        ctk.set_appearance_mode("light")
+        ctk.set_default_color_theme("blue")
+
+        try:
+            icon_path = resource_path("logo.ico")
+            img = Image.open(icon_path)
+            self.iconphoto(False, ImageTk.PhotoImage(img))
+        except Exception as e:
+            print(f"No se pudo cargar el ícono: {e}")
+
+    # -----------------------------
+    # Crear widgets
+    # -----------------------------
+    def create_widgets(self):
+        # Contenedor central
         self.center_frame = ctk.CTkFrame(self, fg_color="#f0f0f0", corner_radius=20)
         self.center_frame.pack(pady=10, padx=30, fill="both", expand=True)
 
-        # ----------------------------- Menú de idioma -----------------------------
+        # Menú de idioma
         self.lang_option = ctk.CTkOptionMenu(
-            self, values=["ES", "EN"], command=self.change_language, width=120
+            self, values=["ES", "EN", "FR", "PT", "HR"], command=self.change_language, width=120
         )
         self.lang_option.place(relx=0.95, y=10, anchor="ne")
         self.lang_option.tkraise()
 
-        # ----------------------------- Botón seleccionar archivos -----------------------------
+        # Botón seleccionar archivos
         self.select_button = ctk.CTkButton(
             self.center_frame, text=LANG_DICT[self.current_lang]["select_button"],
             command=self.select_files, corner_radius=15, width=220
         )
         self.select_button.pack(pady=(20, 10))
 
-        # ----------------------------- Frame de archivos seleccionados -----------------------------
+        # Frame de archivos seleccionados
         self.selected_files_container = ctk.CTkFrame(self.center_frame, height=120, corner_radius=15)
         self.selected_files_container.pack(fill="x", padx=20, pady=5)
         self.selected_files_container.pack_propagate(False)
-
         self.selected_files_frame = ctk.CTkScrollableFrame(self.selected_files_container)
         self.selected_files_frame.pack(fill="both", expand=True)
         self.selected_files_frame.grid_columnconfigure(0, weight=1)
 
-        # ----------------------------- Checkboxes -----------------------------
+        # Checkboxes
         self.format_no_weights_var = ctk.IntVar(value=1)
         self.calc_pesindiv_var = ctk.IntVar()
+        self.add_checkboxes()
 
-        self.format_no_weights_cb = ctk.CTkCheckBox(
-            self.center_frame, text="Formato sin pesos estimados",
-            variable=self.format_no_weights_var
-        )
-        self.format_no_weights_cb.pack(pady=(10, 0))
-
-        self.format_no_weights_desc = ctk.CTkLabel(
-            self.center_frame,
-            text='Pesos de dos individuos aparecen como NA\ncolumna "Tipus" cambiada al diccionario de MRAG.',
-            fg_color="#d0e6ff", text_color="#003366", corner_radius=10,
-            anchor="center", justify="center", wraplength=400
-        )
-        self.format_no_weights_desc.pack(padx=20, pady=(2, 10))
-
-        self.calc_pesindiv_cb = ctk.CTkCheckBox(
-            self.center_frame, text="Calcular PesIndiv y normalizar Tipus",
-            variable=self.calc_pesindiv_var
-        )
-        self.calc_pesindiv_cb.pack(pady=(10, 0))
-
-        self.calc_pesindiv_desc = ctk.CTkLabel(
-            self.center_frame,
-            text="Calcula Peso Individual de cada pez en base a la relación de largo y ancho y la suma total del Pes M.\nNo influye en el peso total del HOP.",
-            fg_color="#d0e6ff", text_color="#003366", corner_radius=10,
-            anchor="center", justify="center", wraplength=400
-        )
-        self.calc_pesindiv_desc.pack(padx=20, pady=(2, 10))
-
-        # ----------------------------- Botón carpeta salida -----------------------------
+        # Botón carpeta de salida
         self.folder_button = ctk.CTkButton(
             self.center_frame, text=LANG_DICT[self.current_lang]["choose_folder"],
             command=self.select_output_folder, corner_radius=15, width=220
         )
         self.folder_button.pack(pady=10)
-
         self.output_folder_label = ctk.CTkLabel(
-            self.center_frame, text=f"Carpeta de salida: {self.output_folder}",
+            self.center_frame, text=f"{LANG_DICT[self.current_lang]['output_folder_label']} {self.output_folder}",
             anchor="w", justify="left", wraplength=850
         )
         self.output_folder_label.pack(padx=20, pady=(2, 10), fill="x")
 
-        # ----------------------------- Botón procesar archivos -----------------------------
+        # Botón procesar archivos
         self.process_button = ctk.CTkButton(
             self.center_frame, text=LANG_DICT[self.current_lang]["process"],
             command=self.procesar_archivos, corner_radius=15, width=220
         )
         self.process_button.pack(pady=10)
 
-        # ----------------------------- Frame de archivos procesados -----------------------------
+        # Frame de archivos procesados
         self.processed_files_container = ctk.CTkFrame(self.center_frame, height=180, corner_radius=15)
         self.processed_files_container.pack(fill="x", padx=20, pady=10)
         self.processed_files_container.pack_propagate(False)
-
         self.processed_files_frame = ctk.CTkScrollableFrame(self.processed_files_container)
         self.processed_files_frame.pack(fill="both", expand=True)
         self.processed_files_frame.grid_columnconfigure(0, weight=1)
 
-        # ----------------------------- Firma -----------------------------
+        # Firma
         self.signature_label = ctk.CTkLabel(
-            self,
-            text="Creado por Bernardo R. para los observadores de MRAG en la granja de L'Ametlla de Mar, Setiembre 2025",
+            self, text="Creado por Bernardo R. para los observadores de MRAG en la granja de L'Ametlla de Mar, Setiembre 2025",
             text_color="#666666", font=("Arial", 9)
         )
         self.signature_label.pack(side="bottom", pady=10)
 
-    # ----------------------------- Cambiar idioma -----------------------------
+    def add_checkboxes(self):
+        # Formato sin pesos estimados
+        self.format_no_weights_cb = ctk.CTkCheckBox(
+            self.center_frame, text=LANG_DICT[self.current_lang]["format_no_weights"], variable=self.format_no_weights_var
+        )
+        self.format_no_weights_cb.pack(pady=(10, 0))
+        self.format_no_weights_desc = ctk.CTkLabel(
+            self.center_frame,
+            text=LANG_DICT[self.current_lang]["format_no_weights_desc"],
+            fg_color="#d0e6ff", text_color="#003366", corner_radius=10,
+            anchor="center", justify="center", wraplength=400
+        )
+        self.format_no_weights_desc.pack(padx=20, pady=(2, 10))
+
+        # Calcular PesIndiv
+        self.calc_pesindiv_cb = ctk.CTkCheckBox(
+            self.center_frame, text=LANG_DICT[self.current_lang]["calc_pesindiv"], variable=self.calc_pesindiv_var
+        )
+        self.calc_pesindiv_cb.pack(pady=(10, 0))
+        self.calc_pesindiv_desc = ctk.CTkLabel(
+            self.center_frame,
+            text=LANG_DICT[self.current_lang]["calc_pesindiv_desc"],
+            fg_color="#d0e6ff", text_color="#003366", corner_radius=10,
+            anchor="center", justify="center", wraplength=400
+        )
+        self.calc_pesindiv_desc.pack(padx=20, pady=(2, 10))
+
+    # -----------------------------
+    # Métodos de interacción
+    # -----------------------------
     def change_language(self, choice):
         self.current_lang = choice
         self.title(LANG_DICT[choice]["title"])
         self.select_button.configure(text=LANG_DICT[choice]["select_button"])
         self.folder_button.configure(text=LANG_DICT[choice]["choose_folder"])
         self.process_button.configure(text=LANG_DICT[choice]["process"])
+        self.format_no_weights_cb.configure(text=LANG_DICT[choice]["format_no_weights"])
+        self.format_no_weights_desc.configure(text=LANG_DICT[choice]["format_no_weights_desc"])
+        self.calc_pesindiv_cb.configure(text=LANG_DICT[choice]["calc_pesindiv"])
+        self.calc_pesindiv_desc.configure(text=LANG_DICT[choice]["calc_pesindiv_desc"])
+        self.output_folder_label.configure(text=f"{LANG_DICT[choice]['output_folder_label']} {self.output_folder}")
 
-    # ----------------------------- Seleccionar archivos -----------------------------
     def select_files(self):
         paths = filedialog.askopenfilenames(
             filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
@@ -214,15 +275,16 @@ class ExcelProcessorApp(ctk.CTk):
             self.selected_files.remove(file_path)
             self.update_selected_files_label()
 
-    # ----------------------------- Seleccionar carpeta de salida -----------------------------
     def select_output_folder(self):
         initial_dir = os.path.dirname(self.selected_files[0]) if self.selected_files else self.output_folder
         folder = filedialog.askdirectory(initialdir=initial_dir)
         if folder:
             self.output_folder = folder
-            self.output_folder_label.configure(text=f"Carpeta de salida: {self.output_folder}")
+            self.output_folder_label.configure(text=f"{LANG_DICT[self.current_lang]['output_folder_label']} {self.output_folder}")
 
-    # ----------------------------- Procesar archivos -----------------------------
+    # -----------------------------
+    # Procesamiento de archivos
+    # -----------------------------
     def procesar_archivos(self):
         if not self.selected_files:
             return
@@ -236,78 +298,95 @@ class ExcelProcessorApp(ctk.CTk):
                 header_row = raw_df[raw_df.eq("Pes M").any(axis=1)].index[0]
                 df = pd.read_excel(file_path, header=header_row)
                 df = df.dropna(how="all").reset_index(drop=True)
-
                 filename = os.path.basename(file_path)
                 hop_number = re.search(r"HOP\s*([0-9]+)", filename, re.IGNORECASE)
                 hop_number = hop_number.group(1) if hop_number else "UNKNOWN"
 
-                # Normalizar Tipus y agregar Cod report
-                if "Tipus" in df.columns:
-                    df["Tipus"] = df["Tipus"].replace({
-                        "HG": "Dressed weight",
-                        "EV": "Gutted and gilled"
-                    })
-                    df["Cod report"] = df["Tipus"].replace({
-                        "Dressed weight": "DWT",
-                        "Gutted and gilled": "GGWT"
-                    })
+                df = self.normalize_tipus(df)
+                df = self.convert_numeric_columns(df, ["Pes M", "Pes", "Llarg", "Ample"])
 
-                    cols = list(df.columns)
-                    tipus_index = cols.index("Tipus")
-                    cols.insert(tipus_index + 1, cols.pop(cols.index("Cod report")))
-                    df = df[cols]
+                if self.format_no_weights_var.get() == 1:
+                    self.apply_no_weights_format(df, hop_number, processed_names, filename, output_folder)
 
-                # Convertir columnas numéricas
-                for col in ["Pes M", "Pes", "Llarg", "Ample"]:
-                    if col in df.columns:
-                        df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
-                        df[col] = pd.to_numeric(df[col], errors="coerce")
-
-                # ----------------- Formato sin pesos estimados -----------------
-                if self.format_no_weights_var.get() == 1 and "Pes M" in df.columns:
-                    df['Pes individual'] = 1
-                    for i in range(len(df) - 1):
-                        pes_current = df.loc[i, "Pes M"]
-                        pes_next = df.loc[i+1, "Pes M"]
-                        if (pd.isna(pes_current) or pes_current == 0) and pd.notna(pes_next) and pes_next > 0:
-                            df.loc[i, "Pes individual"] = 0
-                            df.loc[i+1, "Pes individual"] = 0
-                    df["Pes MRAG"] = df.apply(
-                        lambda row: row["Pes M"] if row["Pes individual"] == 1 else np.nan, axis=1
-                    )
-                    output_file = os.path.join(output_folder, f"Filtered_HOP{hop_number}.xlsx")
-                    df.to_excel(output_file, index=False, na_rep="")
-                    processed_names.append(f"Formato sin pesos estimados: {filename}")
-
-                # ----------------- Calcular PesIndiv -----------------
-                if self.calc_pesindiv_var.get() == 1 and "Pes M" in df.columns:
-                    df["Pes individual"] = 1
-                    for i in range(len(df) - 1):
-                        pes_current = df.loc[i, "Pes M"] if pd.notna(df.loc[i, "Pes M"]) else 0
-                        pes_next = df.loc[i+1, "Pes M"] if pd.notna(df.loc[i+1, "Pes M"]) else 0
-                        if pes_current == 0 and pes_next > 0:
-                            df.loc[i, "Pes individual"] = 0
-                            df.loc[i+1, "Pes individual"] = 0
-                    df["Pes MRAG"] = df.apply(
-                        lambda row: row["Pes M"] if row["Pes individual"] == 1 and row["Pes M"] != 0 else np.nan,
-                        axis=1
-                    )
-                    output_file = os.path.join(output_folder, f"Individual_HOP{hop_number}.xlsx")
-                    df.to_excel(output_file, index=False)
-                    processed_names.append(f"PesIndiv calculado: {filename}")
+                if self.calc_pesindiv_var.get() == 1:
+                    self.apply_pesindiv(df, hop_number, processed_names, filename, output_folder)
 
             except Exception as e:
                 processed_names.append(f"Error procesando {filename}: {e}")
 
         # Mostrar archivos procesados
+        self.display_processed_files(processed_names)
+
+    # -----------------------------
+    # Métodos auxiliares procesamiento
+    # -----------------------------
+    def normalize_tipus(self, df):
+        if "Tipus" in df.columns:
+            df["Tipus"] = df["Tipus"].replace({
+                "HG": "Dressed weight",
+                "EV": "Gutted and gilled"
+            })
+            df["Cod report"] = df["Tipus"].replace({
+                "Dressed weight": "DWT",
+                "Gutted and gilled": "GGWT"
+            })
+            cols = list(df.columns)
+            tipus_index = cols.index("Tipus")
+            cols.insert(tipus_index + 1, cols.pop(cols.index("Cod report")))
+            df = df[cols]
+        return df
+
+    def convert_numeric_columns(self, df, columns):
+        for col in columns:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+        return df
+
+    def apply_no_weights_format(self, df, hop_number, processed_names, filename, output_folder):
+        if "Pes M" not in df.columns:
+            return
+        df["Pes individual"] = 1
+        for i in range(len(df) - 1):
+            pes_current = df.loc[i, "Pes M"]
+            pes_next = df.loc[i+1, "Pes M"]
+            if (pd.isna(pes_current) or pes_current == 0) and pd.notna(pes_next) and pes_next > 0:
+                df.loc[i, "Pes individual"] = 0
+                df.loc[i+1, "Pes individual"] = 0
+        df["Pes MRAG"] = df.apply(
+            lambda row: row["Pes M"] if row["Pes individual"] == 1 else np.nan, axis=1
+        )
+        output_file = os.path.join(output_folder, f"Filtered_HOP{hop_number}.xlsx")
+        df.to_excel(output_file, index=False, na_rep="")
+        processed_names.append(f"Formato sin pesos estimados: {filename}")
+
+    def apply_pesindiv(self, df, hop_number, processed_names, filename, output_folder):
+        if "Pes M" not in df.columns:
+            return
+        df["Pes individual"] = 1
+        for i in range(len(df) - 1):
+            pes_current = df.loc[i, "Pes M"] if pd.notna(df.loc[i, "Pes M"]) else 0
+            pes_next = df.loc[i+1, "Pes M"] if pd.notna(df.loc[i+1, "Pes M"]) else 0
+            if pes_current == 0 and pes_next > 0:
+                df.loc[i, "Pes individual"] = 0
+                df.loc[i+1, "Pes individual"] = 0
+        df["Pes MRAG"] = df.apply(
+            lambda row: row["Pes M"] if row["Pes individual"] == 1 and row["Pes M"] != 0 else np.nan, axis=1
+        )
+        output_file = os.path.join(output_folder, f"Individual_HOP{hop_number}.xlsx")
+        df.to_excel(output_file, index=False)
+        processed_names.append(f"PesIndiv calculado: {filename}")
+
+    def display_processed_files(self, processed_names):
         for widget in self.processed_files_frame.winfo_children():
             widget.destroy()
         for i, text in enumerate(processed_names):
             lbl = ctk.CTkLabel(self.processed_files_frame, text=text, anchor="w", justify="left")
             lbl.grid(row=i, column=0, sticky="w", padx=5, pady=2)
 
-
-# ----------------------------- Ejecutar app -----------------------------
+# -----------------------------
+# Ejecutar app
+# -----------------------------
 if __name__ == "__main__":
     app = ExcelProcessorApp()
     app.mainloop()
