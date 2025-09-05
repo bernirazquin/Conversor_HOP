@@ -1,39 +1,39 @@
-#### HOP Excel Processor 🐟📊
+### 📊 HOP Excel Processor
 
-##Desktop application built in Python with a graphical interface using CustomTkinter
+Desktop application developed in **Python** with a graphical interface (**CustomTkinter**)  
+to process Excel files with fish data from the farm in **L'Ametlla de Mar (MRAG)**.
 
-It helps observers quickly process fish sampling Excel files, generating clean outputs ready for reports or databases.
+This tool helps normalize and filter **HOP (Harvest Observation Program)** data,  
+making observers' work easier by standardizing formats and calculating specific fields.
 
-##🚀 What it does
+---
 
-- Selects multiple Excel files at once.
+## 🚀 Features
 
-- Automatically calculates individual weights.
+- Select multiple Excel files (`.xlsx`, `.xls`).
+- Choose an output folder for processed results.
+- Multilingual interface: **ES, EN, FR, PT, HR**.
+- Two main processing options:
+  1. **Format without estimated weights**
+     - Marks doubtful weights (two individuals sharing weight) as `NA`.
+     - Adjusts the `Tipus` column according to the MRAG dictionary.
+  2. **Calculate `PesIndiv`**
+     - Calculates individual fish weight based on length/width ratio and total `Pes M`.
+     - Normalizes the `Tipus` column.
+     - Does not affect the total HOP weight.
+- Displays selected and processed files on screen.
+- Automatically generates processed Excel files:
+  - `Filtered_HOPxxx.xlsx`
+  - `Individual_HOPxxx.xlsx`
 
-- Normalizes fish type codes.
+---
 
-- Exports results in two formats:
+## 🛠️ Requirements
 
-- Word Sampling (for reports)
+- **Operating System**: Windows (uses `pythoncom` and `win32com`).
+- **Python**: 3.9 or higher
+- **Dependencies**:
+  ```bash
+  pip install pandas numpy pillow customtkinter pywin32
 
-- Access Sampling (for databases)
-
-##🌍 Features
-
-- Simple, intuitive interface.
-
-- Multilingual support: Spanish, English, Croatian, Portuguese.
-
-- Windows-compatible.
-
-##🔧 Tech stack
-
-- Python
-
-- CustomTkinter (GUI)
-
-- Pandas / Numpy (data processing)
-
-- PyWin32 (Windows shortcut support)
-
-<img width="893" height="678" alt="image" src="https://github.com/user-attachments/assets/0c50444f-e1a0-4695-8836-e57511503f29" />
+<img width="890" height="674" alt="image" src="https://github.com/user-attachments/assets/cc268d79-063c-480e-b7ba-000d69612e83" />
